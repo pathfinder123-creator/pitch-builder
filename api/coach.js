@@ -117,8 +117,10 @@ export default async function handler(req, res) {
       return res.status(502).json({ error: "The AI coach did not return usable coaching." });
     }
     return res.status(200).json(response.output_parsed);
-  } catch (error) {
-    // Deliberately avoid logging student content or the raw request.
-    return res.status(500).json({ error: "The AI coach is temporarily unavailable." });
-  }
-}
+ } catch (error) {
+  console.error("OpenAI error:", {
+    name: error?.name,
+    status: error?.status,
+    code: error?.code,
+    message: error?.message
+  });
