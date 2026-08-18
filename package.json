@@ -1,0 +1,11 @@
+{
+  "name": "interview-gym-build-your-pitch-ai",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "openai": "^5.0.0",
+    "zod": "^3.25.0"
+  }
+}
