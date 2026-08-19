@@ -55,3 +55,4 @@ If the endpoint cannot be reached, the front end uses a conservative local fallb
 ## 5. Privacy review before student use
 
 Before institutional deployment, have IT/privacy personnel review the hosting configuration, allowed origins, OpenAI project/data settings, institutional policy requirements, and the student-facing privacy notice.
+Deployment initialized August 2026.
