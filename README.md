@@ -19,3 +19,4 @@ The AI prompt is intentionally narrow: improve flow and grammar without inventin
 
 No project database is included.
 Cloudflare Worker deployment configured.
+Retry Cloudflare deployment.
