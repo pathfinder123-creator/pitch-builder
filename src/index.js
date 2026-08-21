@@ -122,23 +122,24 @@ export default {
             }
           ],
           temperature: 0,
-          max_completion_tokens: 12
+          max_completion_tokens: 100
         });
 
         return json(
-          {
-            ok: true,
-            stage: "model-call",
-            model: MODEL,
-            rawShapeKeys:
-              result && typeof result === "object"
-                ? Object.keys(result)
-                : [],
-            extractedText: extractText(result)
-          },
-          200,
-          c.headers
-        );
+  {
+    ok: true,
+    stage: "model-call",
+    model: MODEL,
+    rawShapeKeys:
+      result && typeof result === "object"
+        ? Object.keys(result)
+        : [],
+    firstChoice: result?.choices?.[0] || null,
+    extractedText: extractText(result)
+  },
+  200,
+  c.headers
+);
       } catch (error) {
         console.error(
           "Workers AI diagnostic error:",
