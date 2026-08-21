@@ -1,12 +1,12 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "build-your-pitch-ai-polish",
+  "name": "pitch-builder",
   "main": "src/index.js",
   "compatibility_date": "2026-08-20",
   "ai": {
     "binding": "AI"
   },
   "vars": {
-    "ALLOWED_ORIGINS": "https://YOUR-GITHUB-PAGES-ORIGIN"
+    "ALLOWED_ORIGINS": ""
   }
 }
