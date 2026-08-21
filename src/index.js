@@ -242,14 +242,13 @@ export default {
 
       const result = await env.AI.run(MODEL, {
         messages: [
-          {
-            role: "system",
-            content: SYSTEM
-          },
-          {
-            {
-  role: "user",
-  content: `COPY-EDIT ONLY.
+  {
+    role: "system",
+    content: SYSTEM
+  },
+  {
+    role: "user",
+    content: `COPY-EDIT ONLY.
 
 Do not add any information.
 Do not infer anything.
@@ -264,11 +263,10 @@ ORIGINAL:
 ${pitch}
 
 Return only the edited version.`
-}
-          }
-        ],
-        temperature: 0.25,
-        max_completion_tokens: 220
+  }
+],
+temperature: 0.25,
+max_tokens: 220
       });
 
       const polished = extractText(result)
