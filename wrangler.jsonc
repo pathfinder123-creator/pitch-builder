@@ -7,7 +7,9 @@
     "binding": "AI"
   },
   "vars": {
-    "ALLOWED_ORIGINS": ""
+    "vars": {
+  "ALLOWED_ORIGINS": "https://pathfinder123-creator.github.io"
+}
   },
   "observability": {
     "enabled": true,
