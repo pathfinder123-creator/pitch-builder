@@ -18,3 +18,4 @@ The Worker uses `@cf/google/gemma-4-26b-a4b-it`.
 The AI prompt is intentionally narrow: improve flow and grammar without inventing facts. The student reviews the returned version before choosing **Use Polished Version**.
 
 No project database is included.
+Cloudflare Worker deployment configured.
