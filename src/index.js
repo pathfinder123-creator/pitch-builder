@@ -11,8 +11,6 @@ Rules:
 - Improve grammar, flow, transitions, rhythm, and awkward repetition.
 - Prefer natural spoken language over corporate or inflated language.
 - Keep the structure focused on: who I am -> value I bring -> who/where I want to contribute.
-- Keep it concise, usually about 65-100 words when the source supports that length.
-- Do not add an anecdote unless one already appears.
 - Return ONLY the polished pitch.`;
 
 function cors(origin, env) {
@@ -37,7 +35,7 @@ function cors(origin, env) {
 }
 
 function json(body, status = 200, headers = {}) {
-  return new Response(JSON.stringify(body), {
+  return new Response(JSON.stringify(body, null, 2), {
     status,
     headers
   });
@@ -86,11 +84,80 @@ export default {
         {
           ok: true,
           service: "Build Your Pitch AI Polish",
-          model: MODEL
+          model: MODEL,
+          aiBindingPresent: Boolean(env.AI)
         },
         200,
         c.headers
       );
+    }
+
+    // Temporary AI diagnostic route
+    if (
+      request.method === "GET" &&
+      url.pathname === "/test-ai"
+    ) {
+      if (!env.AI) {
+        return json(
+          {
+            ok: false,
+            stage: "binding",
+            error: "Workers AI binding env.AI is missing."
+          },
+          500,
+          c.headers
+        );
+      }
+
+      try {
+        const result = await env.AI.run(MODEL, {
+          messages: [
+            {
+              role: "system",
+              content: "Reply with only the word OK."
+            },
+            {
+              role: "user",
+              content: "Test."
+            }
+          ],
+          temperature: 0,
+          max_completion_tokens: 12
+        });
+
+        return json(
+          {
+            ok: true,
+            stage: "model-call",
+            model: MODEL,
+            rawShapeKeys:
+              result && typeof result === "object"
+                ? Object.keys(result)
+                : [],
+            extractedText: extractText(result)
+          },
+          200,
+          c.headers
+        );
+      } catch (error) {
+        console.error(
+          "Workers AI diagnostic error:",
+          error
+        );
+
+        return json(
+          {
+            ok: false,
+            stage: "model-call",
+            model: MODEL,
+            errorName: error?.name || null,
+            errorMessage:
+              error?.message || String(error)
+          },
+          500,
+          c.headers
+        );
+      }
     }
 
     if (url.pathname !== "/polish") {
@@ -118,8 +185,21 @@ export default {
     }
 
     try {
+      if (!env.AI) {
+        return json(
+          {
+            error:
+              "Workers AI binding is unavailable."
+          },
+          500,
+          c.headers
+        );
+      }
+
       const body = await request.json();
-      const pitch = String(body?.pitch || "").trim();
+      const pitch = String(
+        body?.pitch || ""
+      ).trim();
 
       if (!pitch) {
         return json(
@@ -137,21 +217,25 @@ export default {
           },
           {
             role: "user",
-            content: `Polish this elevator pitch:\n\n${pitch}`
+            content:
+              `Polish this elevator pitch:\n\n${pitch}`
           }
         ],
         temperature: 0.25,
         max_completion_tokens: 220
       });
 
-      let polished = extractText(result)
+      const polished = extractText(result)
         .trim()
         .replace(/^["“]|["”]$/g, "")
         .trim();
 
       if (!polished) {
         return json(
-          { error: "The AI returned no usable polished pitch." },
+          {
+            error:
+              "The AI returned no usable polished pitch."
+          },
           502,
           c.headers
         );
@@ -165,17 +249,18 @@ export default {
         200,
         c.headers
       );
-
     } catch (error) {
       console.error(
         "AI polish failure:",
-        error?.message || error
+        error
       );
 
       return json(
         {
           error:
-            "AI polishing is temporarily unavailable."
+            "AI polishing is temporarily unavailable.",
+          diagnostic:
+            error?.message || String(error)
         },
         500,
         c.headers
