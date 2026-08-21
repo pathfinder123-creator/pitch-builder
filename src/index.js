@@ -1,4 +1,4 @@
-const MODEL = "@cf/google/gemma-4-26b-a4b-it";
+const MODEL = "@cf/zai-org/glm-4.7-flash";
 
 const SYSTEM = `You are the final polishing editor for a college career-development tool called Build Your Pitch.
 
