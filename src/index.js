@@ -247,9 +247,24 @@ export default {
             content: SYSTEM
           },
           {
-            role: "user",
-            content:
-              `Polish this elevator pitch:\n\n${pitch}`
+            {
+  role: "user",
+  content: `COPY-EDIT ONLY.
+
+Do not add any information.
+Do not infer anything.
+Do not change who performs an action.
+Do not change an interest into a skill.
+Do not change a skill into something the student teaches or provides.
+Do not add a purpose, benefit, motivation, or outcome.
+
+Make the smallest edits necessary for grammar, clarity, flow, and natural spoken language.
+
+ORIGINAL:
+${pitch}
+
+Return only the edited version.`
+}
           }
         ],
         temperature: 0.25,
