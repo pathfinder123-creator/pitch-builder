@@ -223,7 +223,7 @@ export default {
           }
         ],
         temperature: 0.25,
-        max_completion_tokens: 220
+        max_completion_tokens: 700
       });
 
       const polished = extractText(result)
