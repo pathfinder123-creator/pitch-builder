@@ -138,7 +138,7 @@ textarea:focus{outline:3px solid rgba(12,46,130,.10);border-color:#6b89c3}.examp
       <p class="lead">Give your listener a quick point of orientation.</p>
       <p class="sub">Include what you're studying, doing, or preparing for and your field or direction.</p>
       <textarea id="who" spellcheck="true" placeholder="Type your answer here..."></textarea>
-      <div class="example">Example: Psychology student interested in counseling and social work</div>
+      <div class="example">Example: I'm a Psychology student interested in counseling and social work.</div>
     </div>
   </section>
 
@@ -148,7 +148,7 @@ textarea:focus{outline:3px solid rgba(12,46,130,.10);border-color:#6b89c3}.examp
       <p class="lead">What are you especially good at helping people, teams, customers, or organizations do?</p>
       <p class="sub">Think beyond adjectives. Describe the contribution you make.</p>
       <textarea id="value" spellcheck="true" placeholder="Type your answer here..."></textarea>
-      <div class="example">Example: I listen carefully, help people clarify what they're facing, and help them think through practical next steps.</div>
+      <div class="example">Example: I listen carefully and help people look at problems from different perspectives.</div>
     </div>
   </section>
 
@@ -158,7 +158,7 @@ textarea:focus{outline:3px solid rgba(12,46,130,.10);border-color:#6b89c3}.examp
       <p class="lead">Where do you want to contribute—and what would you like this conversation to lead to?</p>
       <p class="sub">Include the type of organization, people, or opportunity you're seeking.</p>
       <textarea id="whom" spellcheck="true" placeholder="Type your answer here..."></textarea>
-      <div class="example">Example: I'm looking for an opportunity to apply and develop these skills in a mental-health counseling setting.</div>
+      <div class="example">Example: I'm looking for an opportunity in a counseling setting where I can support others and gain experience.</div>
     </div>
   </section>
 </div>
@@ -479,21 +479,14 @@ async function polishWithAI(){
   try{
     const response=await fetch(AI_POLISH_ENDPOINT,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pitch:current})});
     const data=await response.json().catch(()=>({}));
-   if(!response.ok) {
-  throw new Error(
-    data.diagnostic ||
-    data.error ||
-    `AI request failed (${response.status}).`
-  );
-}
+    if(!response.ok) throw new Error(data.error||`AI request failed (${response.status}).`);
     const polished=normalizeInput(data.polished||'');
     if(!polished) throw new Error('The AI did not return a usable polished pitch.');
     aiPolishedText=ensureSentence(polished);
     output.textContent=aiPolishedText;result.classList.add('show');
     status.textContent='Review the polished version. You decide whether to use it.';
   }catch(err){
-    status.textContent =
-  'AI error: ' + (err?.message || String(err));
+    status.textContent='AI polishing is temporarily unavailable. Your original pitch and local tools are unchanged.';
     console.error('AI polish error:',err);
   }finally{btn.disabled=false;btn.textContent='Polish with AI';}
 }
