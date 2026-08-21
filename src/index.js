@@ -1,4 +1,4 @@
-const MODEL = "@cf/zai-org/glm-4.7-flash";
+const MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 
 const SYSTEM = `You are the final polishing editor for a college career-development tool called Build Your Pitch.
 
@@ -122,7 +122,7 @@ export default {
             }
           ],
           temperature: 0,
-          max_completion_tokens: 100
+          max_completion_tokens: 220
         });
 
         return json(
@@ -223,7 +223,7 @@ export default {
           }
         ],
         temperature: 0.25,
-        max_completion_tokens: 700
+        max_completion_tokens: 220
       });
 
       const polished = extractText(result)
