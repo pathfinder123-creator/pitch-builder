@@ -253,6 +253,10 @@ export default {
 Do not add any information.
 Do not infer anything.
 Do not change who performs an action.
+Preserve exactly who is performing each action.
+Do not transfer an action, skill, behavior, or responsibility from the student to another person or from another person to the student.
+If the original wording is ambiguous, choose the interpretation that requires the fewest factual changes.
+If clarity cannot be improved without making an inference, preserve the original meaning and make only grammatical changes.
 Do not change an interest into a skill.
 Do not change a skill into something the student teaches or provides.
 Do not add a purpose, benefit, motivation, or outcome.
