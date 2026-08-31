@@ -1,5 +1,4 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "pitch-builder",
   "main": "src/index.js",
   "compatibility_date": "2026-08-20",
@@ -7,10 +6,18 @@
     "binding": "AI"
   },
   "vars": {
-    "vars": {
-  "ALLOWED_ORIGINS": "https://pathfinder123-creator.github.io"
-}
+    "ALLOWED_ORIGINS": "https://pathfinder123-creator.github.io,https://pitch-builder-mu.vercel.app"
   },
+  "ratelimits": [
+    {
+      "name": "AI_RATE_LIMITER",
+      "namespace_id": "1009",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    }
+  ],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1
