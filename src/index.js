@@ -1,4 +1,4 @@
-// Career tools AI — 2026-08-31. Preserve the AI binding and existing environment variables.
+// Career tools AI — 2026-09-01-r2. Preserve the AI binding and existing environment variables.
 const MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
 var SYSTEM = `You are a conservative copy editor for a college career-development tool called Build Your Pitch.
 
@@ -79,10 +79,19 @@ async function htmlText(html){
   await new HTMLRewriter().onDocument({text(t){chunks.push(t.text);}}).transform(new Response(cleaned)).text();
   return tidy(chunks.join(''));
 }
+function decodeHTMLEntities(value){
+  const named={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' '};
+  return String(value||'').replace(/&(#x[0-9a-f]+|#\d+|amp|lt|gt|quot|apos|nbsp);/gi,(whole,key)=>{
+    const lower=key.toLowerCase();
+    if(lower[0]!=='#')return named[lower]??whole;
+    const code=lower[1]==='x'?parseInt(lower.slice(2),16):parseInt(lower.slice(1),10);
+    return Number.isFinite(code)&&code>0&&code<=0x10ffff?String.fromCodePoint(code):whole;
+  });
+}
 async function jobHTMLText(value){
   let current=String(value||'');
-  for(let pass=0;pass<3;pass++){
-    const next=await htmlText(current);
+  for(let pass=0;pass<4;pass++){
+    const next=await htmlText(decodeHTMLEntities(current));
     if(next===current)return next;
     current=next;
   }
@@ -244,7 +253,7 @@ export default {
     const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'};
     if(ok)headers['Access-Control-Allow-Origin']=origin;
     const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
-    if(request.method==='GET' && url.pathname==='/health')return reply({ok:true,service:'Career Tools AI',version:'2026-08-31',rateLimitConfigured:!!env.AI_RATE_LIMITER});
+    if(request.method==='GET' && url.pathname==='/health')return reply({ok:true,service:'Career Tools AI',version:'2026-09-01-r2',rateLimitConfigured:!!env.AI_RATE_LIMITER});
     if(request.method==='OPTIONS')return new Response(null,{status:ok?204:403,headers});
     if(!ok)return reply({error:'Origin not allowed. Open the tool on its approved hosted website.'},403);
     if(!['/polish','/job-posting','/align'].includes(url.pathname))return reply({error:'Not found.'},404);
