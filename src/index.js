@@ -1,5 +1,6 @@
-// Career tools AI — 2026-09-01-r2. Preserve the AI binding and existing environment variables.
+// Career tools AI — 2026-09-01-r3. Preserve the AI binding and existing environment variables.
 const MODEL = "@cf/meta/llama-3.1-8b-instruct-fast";
+const ALIGNMENT_MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
 var SYSTEM = `You are a conservative copy editor for a college career-development tool called Build Your Pitch.
 
 CLOSED-FACT RULE
@@ -199,7 +200,9 @@ jobEvidence must be an exact contiguous excerpt from the job posting (10 to 400 
 Use required/preferred ONLY if the jobEvidence explicitly supports that priority; otherwise unspecified.
 keyword must be an exact word or phrase from jobEvidence. requirement should briefly name the requirement.
 match means explicit evidence; related means partial or equivalent evidence whose limits you explain; not_demonstrated means absent or insufficient evidence, NOT that the person lacks the skill.
-Recommendations are short review actions, never drafted resume text. For not_demonstrated say to add evidence ONLY if accurate. For related wording, warn against overstating scope. Never add a qualification, score, hiring prediction, ATS claim, or percentage.
+Before using not_demonstrated, check the entire resume for inflections, synonyms, and plainly equivalent wording. For example, "communicates clearly" is related evidence for "clear communication," and customer relationship-building is related evidence for relationship-development duties. Do not require exact keyword repetition.
+Recommendations are short review actions, never drafted resume text. Begin each recommendation with an action verb such as "Review," "Clarify," or "If accurate, add"; never begin with "To add." For not_demonstrated say to add evidence ONLY if accurate. For related wording, identify the supported overlap and warn against overstating scope. Never add a qualification, score, hiring prediction, ATS claim, or percentage.
+Return at least one related finding whenever the resume contains a reasonable equivalent or partial example of a posting requirement. Never classify that same requirement as not_demonstrated merely because the wording differs.
 Preserve uncertainty. Treat all conclusions as suggestions for student review.`;
 const FINDING_SCHEMA={type:'object',properties:{findings:{type:'array',minItems:1,maxItems:16,items:{type:'object',properties:Object.fromEntries(['category','priority','requirement','jobEvidence','resumeEvidence','keyword','recommendation'].map(k=>[k,{type:'string'}])),required:['category','priority','requirement','jobEvidence','resumeEvidence','keyword','recommendation'],additionalProperties:false}}},required:['findings'],additionalProperties:false};
 function validateReport(raw,resume,job){
@@ -222,7 +225,7 @@ function validateReport(raw,resume,job){
 }
 async function align(body,env){
   const resume=field(body.resume,'Resume content',40,16000), job=field(body.jobPosting,'Job description',100,40000);
-  const result=await timeout(env.AI.run(env.ALIGNMENT_MODEL || MODEL,{messages:[{role:'system',content:ALIGN_SYSTEM},{role:'user',content:JSON.stringify({resume,jobPosting:job})}],temperature:0.1,max_tokens:4000,response_format:{type:'json_schema',json_schema:FINDING_SCHEMA}}));
+  const result=await timeout(env.AI.run(env.ALIGNMENT_MODEL || ALIGNMENT_MODEL,{messages:[{role:'system',content:ALIGN_SYSTEM},{role:'user',content:JSON.stringify({resume,jobPosting:job})}],temperature:0.1,max_tokens:4000,response_format:{type:'json_schema',json_schema:FINDING_SCHEMA}}));
   let raw=result?.response;
   if(!raw || typeof raw!=='object'){try{raw=JSON.parse(textResult(result));}catch{throw new PublicError('The AI returned an unreadable report. Please try again.',502);}}
   return validateReport(raw,resume,job);
@@ -253,7 +256,7 @@ export default {
     const headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin','Access-Control-Allow-Methods':'GET, POST, OPTIONS','Access-Control-Allow-Headers':'Content-Type'};
     if(ok)headers['Access-Control-Allow-Origin']=origin;
     const reply=(body,status=200)=>new Response(JSON.stringify(body),{status,headers});
-    if(request.method==='GET' && url.pathname==='/health')return reply({ok:true,service:'Career Tools AI',version:'2026-09-01-r2',rateLimitConfigured:!!env.AI_RATE_LIMITER});
+    if(request.method==='GET' && url.pathname==='/health')return reply({ok:true,service:'Career Tools AI',version:'2026-09-01-r3',polishModel:MODEL,alignmentModel:env.ALIGNMENT_MODEL||ALIGNMENT_MODEL,rateLimitConfigured:!!env.AI_RATE_LIMITER});
     if(request.method==='OPTIONS')return new Response(null,{status:ok?204:403,headers});
     if(!ok)return reply({error:'Origin not allowed. Open the tool on its approved hosted website.'},403);
     if(!['/polish','/job-posting','/align'].includes(url.pathname))return reply({error:'Not found.'},404);
