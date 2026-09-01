@@ -79,11 +79,76 @@ async function htmlText(html){
   await new HTMLRewriter().onDocument({text(t){chunks.push(t.text);}}).transform(new Response(cleaned)).text();
   return tidy(chunks.join(''));
 }
+async function selectorText(html,selector){
+  const chunks=[];
+  await new HTMLRewriter().on(selector,{text(t){chunks.push(t.text);}}).transform(new Response(html)).text();
+  return tidy(chunks.join(''));
+}
+function jobLocationText(value){
+  const values=Array.isArray(value)?value:[value];
+  return values.map(x=>{
+    const a=x?.address||x;
+    return [a?.addressLocality,a?.addressRegion,a?.addressCountry].filter(Boolean).join(', ');
+  }).filter(Boolean).join(' / ');
+}
+async function greenhousePosting(u,signal){
+  if(!/(^|\.)greenhouse\.io$/i.test(u.hostname))return null;
+  const parts=u.pathname.split('/').filter(Boolean), jobsAt=parts.indexOf('jobs');
+  if(jobsAt<1)return null;
+  const board=parts[jobsAt-1], id=(parts[jobsAt+1]||'').match(/^\d+/)?.[0];
+  if(!/^[a-z0-9_-]{1,80}$/i.test(board)||!id)return null;
+  const api=`https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(board)}/jobs/${id}?content=true`;
+  const r=await fetch(api,{signal,headers:{Accept:'application/json'}});
+  if(!r.ok){await r.body?.cancel();return null;}
+  const raw=await limitedText(r,1000000);let data;
+  try{data=JSON.parse(raw);}catch{return null;}
+  const body=await htmlText(String(data.content||''));
+  const text=tidy([data.title,data.company_name,jobLocationText(data.location),body].filter(Boolean).join('\n'));
+  return text.length>=180?text:null;
+}
+async function leverPosting(u,signal){
+  if(!/(^|\.)lever\.co$/i.test(u.hostname))return null;
+  const parts=u.pathname.split('/').filter(Boolean);
+  if(parts.length<2||!/^[a-z0-9_-]{1,80}$/i.test(parts[0])||!/^[a-z0-9-]{8,80}$/i.test(parts[1]))return null;
+  const api=`https://api.lever.co/v0/postings/${encodeURIComponent(parts[0])}/${encodeURIComponent(parts[1])}`;
+  const r=await fetch(api,{signal,headers:{Accept:'application/json'}});
+  if(!r.ok){await r.body?.cancel();return null;}
+  const raw=await limitedText(r,1000000);let data;
+  try{data=JSON.parse(raw);}catch{return null;}
+  const lists=Array.isArray(data.lists)?data.lists.map(x=>[x.text,x.content].filter(Boolean).join(': ')):[];
+  const text=tidy([data.text,data.categories?.team,data.categories?.location,data.descriptionPlain,data.additionalPlain,...lists].filter(Boolean).join('\n'));
+  return text.length>=180?text:null;
+}
+async function structuredPosting(html){
+  for(const match of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi)){
+    try{const queue=[JSON.parse(match[1])];let count=0;
+      while(queue.length&&count++<500){const item=queue.shift();if(!item||typeof item!=='object')continue;
+        if([item['@type']].flat().includes('JobPosting')){
+          const employer=typeof item.hiringOrganization==='string'?item.hiringOrganization:item.hiringOrganization?.name;
+          const description=await htmlText(String(item.description||item.responsibilities||item.qualifications||''));
+          const text=tidy([item.title,employer,jobLocationText(item.jobLocation),description].filter(Boolean).join('\n'));
+          if(text.length>=180)return text;
+        }
+        queue.push(...Object.values(item).filter(x=>x&&typeof x==='object'));
+      }
+    }catch{/* Ignore malformed page metadata and use visible content. */}
+  }
+  return '';
+}
 async function retrievePosting(raw, env){
   let u=safeJobURL(field(raw,'URL',8,2048),env);
-  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),18000);
+  const controller=new AbortController(); const timer=setTimeout(()=>controller.abort(),25000);
   try {
-    for(let redirects=0;redirects<4;redirects++){
+    const platformText=await greenhousePosting(u,controller.signal)||await leverPosting(u,controller.signal);
+    if(platformText){
+      if(platformText.length>40000)throw new PublicError('This posting is unusually long. Paste only the job description instead.',422);
+      return {text:platformText,sourceUrl:u.toString(),notice:'Posting retrieved from the employer’s recruiting feed. Check the title, employer, requirements, and completeness below.'};
+    }
+    const visited=new Set();
+    for(let redirects=0;redirects<8;redirects++){
+      const key=u.toString();
+      if(visited.has(key))throw new PublicError('This site sent the request through a redirect loop. Paste the job description instead.',422);
+      visited.add(key);
       const r=await fetch(u.toString(),{redirect:'manual',signal:controller.signal,headers:{Accept:'text/html,application/xhtml+xml,text/plain'}});
       if([301,302,303,307,308].includes(r.status)){
         const location=r.headers.get('location'); await r.body?.cancel();
@@ -94,20 +159,14 @@ async function retrievePosting(raw, env){
       const type=r.headers.get('content-type')||'';
       if(!/text\/html|application\/xhtml\+xml|text\/plain/i.test(type)){await r.body?.cancel();throw new PublicError('This URL is not a readable job page. Paste the description instead.');}
       const html=await limitedText(r,1000000);
-      let description='';
-      // Prefer structured JobPosting data to avoid site navigation and unrelated vacancies.
-      for(const match of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script\s*>/gi)){
-        try { const queue=[JSON.parse(match[1])]; let count=0;
-          while(queue.length && count++<500){ const item=queue.shift(); if(!item || typeof item!=='object')continue;
-            if([item['@type']].flat().includes('JobPosting') && typeof item.description==='string') {description=await htmlText(item.description); break;}
-            queue.push(...Object.values(item).filter(x=>x && typeof x==='object'));
-          }
-        }catch{/* fall back to visible page text */}
-        if(description)break;
+      let text=/text\/plain/i.test(type)?tidy(html):await structuredPosting(html);
+      if(!text&&!/text\/plain/i.test(type)){
+        for(const selector of ['main','article','[role="main"]','.job-description','#job-description','body']){
+          text=await selectorText(html,selector);if(text.length>=180&&text.length<=40000)break;
+        }
       }
-      const text=description || (/text\/plain/i.test(type)?tidy(html):await htmlText(html));
       if(text.length<180 || /^(just a moment|access denied|verify you are human)/i.test(text))throw new PublicError('The page did not provide a usable job description. Paste the text instead.',422);
-      if(text.length>20000)throw new PublicError('This page contains too much text. Paste only the job description instead.',422);
+      if(text.length>40000)throw new PublicError('This page contains too much unrelated text. Paste only the job description instead.',422);
       return {text,sourceUrl:u.toString(),notice:'Check the title, employer, requirements, and completeness below. URL retrieval can include unrelated page text.'};
     }
     throw new PublicError('Too many redirects. Paste the job description instead.');
@@ -144,7 +203,7 @@ function validateReport(raw,resume,job){
   return {findings,omitted,generatedAt:new Date().toISOString()};
 }
 async function align(body,env){
-  const resume=field(body.resume,'Resume content',40,16000), job=field(body.jobPosting,'Job description',100,20000);
+  const resume=field(body.resume,'Resume content',40,16000), job=field(body.jobPosting,'Job description',100,40000);
   const result=await timeout(env.AI.run(env.ALIGNMENT_MODEL || MODEL,{messages:[{role:'system',content:ALIGN_SYSTEM},{role:'user',content:JSON.stringify({resume,jobPosting:job})}],temperature:0.1,max_tokens:4000,response_format:{type:'json_schema',json_schema:FINDING_SCHEMA}}));
   let raw=result?.response;
   if(!raw || typeof raw!=='object'){try{raw=JSON.parse(textResult(result));}catch{throw new PublicError('The AI returned an unreadable report. Please try again.',502);}}
