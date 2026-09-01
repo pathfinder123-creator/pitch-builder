@@ -79,6 +79,15 @@ async function htmlText(html){
   await new HTMLRewriter().onDocument({text(t){chunks.push(t.text);}}).transform(new Response(cleaned)).text();
   return tidy(chunks.join(''));
 }
+async function jobHTMLText(value){
+  let current=String(value||'');
+  for(let pass=0;pass<3;pass++){
+    const next=await htmlText(current);
+    if(next===current)return next;
+    current=next;
+  }
+  return current;
+}
 async function selectorText(html,selector){
   const chunks=[];
   await new HTMLRewriter().on(selector,{text(t){chunks.push(t.text);}}).transform(new Response(html)).text();
@@ -102,7 +111,7 @@ async function greenhousePosting(u,signal){
   if(!r.ok){await r.body?.cancel();return null;}
   const raw=await limitedText(r,1000000);let data;
   try{data=JSON.parse(raw);}catch{return null;}
-  const body=await htmlText(String(data.content||''));
+  const body=await jobHTMLText(data.content);
   const text=tidy([data.title,data.company_name,jobLocationText(data.location),body].filter(Boolean).join('\n'));
   return text.length>=180?text:null;
 }
@@ -115,7 +124,7 @@ async function leverPosting(u,signal){
   if(!r.ok){await r.body?.cancel();return null;}
   const raw=await limitedText(r,1000000);let data;
   try{data=JSON.parse(raw);}catch{return null;}
-  const lists=Array.isArray(data.lists)?data.lists.map(x=>[x.text,x.content].filter(Boolean).join(': ')):[];
+  const lists=Array.isArray(data.lists)?await Promise.all(data.lists.map(async x=>[x.text,await jobHTMLText(x.content)].filter(Boolean).join(': '))):[];
   const text=tidy([data.text,data.categories?.team,data.categories?.location,data.descriptionPlain,data.additionalPlain,...lists].filter(Boolean).join('\n'));
   return text.length>=180?text:null;
 }
